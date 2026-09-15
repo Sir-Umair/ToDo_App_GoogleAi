@@ -1,6 +1,8 @@
 {
-  "name": "Task Priority & Deadline Alarm",
+  "name": "Taskly",
   "description": "A focused task manager with priority categorization, deadline alarms with audio chime, smooth list transitions, and goal progress tracking.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

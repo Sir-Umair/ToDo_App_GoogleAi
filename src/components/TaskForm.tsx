@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
   Clock, 
@@ -7,11 +7,16 @@ import {
   ChevronDown, 
   ChevronUp, 
   Calendar,
-  Sparkles
+  Sparkles,
+  Volume2,
+  Music
 } from 'lucide-react';
-import { Priority, Category } from '../types';
+import { Priority, Category, AlarmTone, CustomRingtone } from '../types';
+import { soundManager } from '../utils/audio';
 
 interface TaskFormProps {
+  customRingtones: CustomRingtone[];
+  onOpenRingtoneManager: () => void;
   onAddTask: (task: {
     title: string;
     description?: string;
@@ -19,6 +24,8 @@ interface TaskFormProps {
     category: Category;
     deadline?: string;
     alarmEnabled: boolean;
+    alarmTone?: AlarmTone;
+    customRingtoneId?: string;
   }) => void;
 }
 
@@ -58,14 +65,27 @@ const CATEGORIES: { id: Category; label: string }[] = [
   { id: 'other', label: 'Other' },
 ];
 
-export const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
+export const TaskForm: React.FC<TaskFormProps> = ({ 
+  onAddTask,
+  customRingtones,
+  onOpenRingtoneManager
+}) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>('medium');
   const [category, setCategory] = useState<Category>('work');
   const [deadline, setDeadline] = useState('');
   const [alarmEnabled, setAlarmEnabled] = useState(true);
+  const [alarmTone, setAlarmTone] = useState<AlarmTone>('chime');
+  const [customRingtoneId, setCustomRingtoneId] = useState<string>('');
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Sync customRingtoneId if custom tone is selected and none picked yet
+  useEffect(() => {
+    if (alarmTone === 'custom' && !customRingtoneId && customRingtones.length > 0) {
+      setCustomRingtoneId(customRingtones[0].id);
+    }
+  }, [alarmTone, customRingtoneId, customRingtones]);
 
   // Quick deadline helper
   const setQuickDeadline = (minutesFromNow: number) => {
@@ -122,7 +142,9 @@ export const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
       priority,
       category,
       deadline: deadline || undefined,
-      alarmEnabled: Boolean(deadline && alarmEnabled)
+      alarmEnabled: Boolean(deadline && alarmEnabled),
+      alarmTone,
+      customRingtoneId: alarmTone === 'custom' ? customRingtoneId : undefined
     });
 
     setTitle('');
@@ -301,6 +323,122 @@ export const TaskForm: React.FC<TaskFormProps> = ({ onAddTask }) => {
                 </button>
               )}
             </div>
+
+            {/* Alarm Tone Selection */}
+            {alarmEnabled && deadline && (
+              <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-700/60 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
+                    <Music className="w-3 h-3 text-indigo-500" />
+                    Alarm Tone:
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (alarmTone === 'custom') {
+                          const picked = customRingtones.find(r => r.id === customRingtoneId) || customRingtones[0];
+                          if (picked) soundManager.playCustomAudio(picked.dataUrl, false);
+                          else soundManager.playTone('chime');
+                        } else {
+                          soundManager.playTone(alarmTone);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium px-1.5 py-0.5 rounded hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                      title="Preview selected tone"
+                    >
+                      <Volume2 className="w-3 h-3" />
+                      Preview Tone
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onOpenRingtoneManager}
+                      className="text-[11px] text-zinc-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 underline decoration-dotted"
+                      title="Upload custom ringtone from your device"
+                    >
+                      + Upload Custom
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                  {[
+                    { id: 'chime', label: 'Classic Chime' },
+                    { id: 'digital', label: 'Digital Beep' },
+                    { id: 'radar', label: 'Sonar Radar' },
+                    { id: 'gentle', label: 'Gentle Bell' },
+                    { id: 'custom', label: 'Custom Audio' },
+                  ].map((tone) => (
+                    <button
+                      key={tone.id}
+                      type="button"
+                      onClick={() => {
+                        const t = tone.id as AlarmTone;
+                        setAlarmTone(t);
+                        if (t === 'custom') {
+                          if (customRingtones.length === 0) {
+                            onOpenRingtoneManager();
+                          } else {
+                            const selected = customRingtones.find(r => r.id === customRingtoneId) || customRingtones[0];
+                            soundManager.playCustomAudio(selected.dataUrl, false);
+                          }
+                        } else {
+                          soundManager.playTone(t);
+                        }
+                      }}
+                      className={`px-2 py-1.5 text-xs rounded-lg border transition-all text-center flex items-center justify-between ${
+                        alarmTone === tone.id
+                          ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-500 text-indigo-700 dark:text-indigo-300 font-semibold'
+                          : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                      }`}
+                    >
+                      <span className="truncate">{tone.label}</span>
+                      {alarmTone === tone.id && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 shrink-0 ml-1" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sub-selector if Custom Audio is selected */}
+                {alarmTone === 'custom' && (
+                  <div className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    {customRingtones.length > 0 ? (
+                      <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <span className="text-zinc-500 dark:text-zinc-400 text-[11px] shrink-0">Select File:</span>
+                        <select
+                          value={customRingtoneId}
+                          onChange={(e) => {
+                            setCustomRingtoneId(e.target.value);
+                            const picked = customRingtones.find(r => r.id === e.target.value);
+                            if (picked) soundManager.playCustomAudio(picked.dataUrl, false);
+                          }}
+                          className="flex-1 px-2 py-1 text-xs rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        >
+                          {customRingtones.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name} {r.duration ? `(${r.duration}s)` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">
+                        No custom audio uploaded yet. Click &apos;Upload Audio&apos; to pick from your iPhone, Android, or computer.
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={onOpenRingtoneManager}
+                      className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-medium transition-colors"
+                    >
+                      {customRingtones.length > 0 ? 'Manage Files' : 'Upload Audio'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Quick Presets (Super helpful for testing alarms!) */}
             <div className="flex items-center gap-1.5 flex-wrap pt-1">

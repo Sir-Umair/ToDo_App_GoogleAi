@@ -8,7 +8,8 @@ import {
   BellOff, 
   Clock, 
   AlertCircle,
-  RotateCcw
+  RotateCcw,
+  Music
 } from 'lucide-react';
 import { Task, Priority } from '../types';
 import { formatDeadline, getDeadlineInfo } from '../utils/date';
@@ -169,32 +170,44 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
             {/* Alarm Status Indicator */}
             {task.deadline && (
-              <button
-                type="button"
-                id={`btn-toggle-alarm-${task.id}`}
-                onClick={() => onToggleAlarm(task.id)}
-                disabled={task.completed}
-                className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded transition-colors ${
-                  task.completed
-                    ? 'text-zinc-300 dark:text-zinc-600 cursor-not-allowed'
-                    : task.alarmEnabled
-                      ? 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30'
-                      : 'text-zinc-400 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                }`}
-                title={task.alarmEnabled ? 'Alarm enabled on deadline (Click to disable)' : 'Alarm disabled (Click to enable)'}
-              >
-                {task.alarmEnabled ? (
-                  <>
-                    <Bell className="w-3 h-3 text-amber-500 fill-amber-500/20 animate-wiggle" />
-                    <span>Alarm on</span>
-                  </>
-                ) : (
-                  <>
-                    <BellOff className="w-3 h-3" />
-                    <span>Alarm off</span>
-                  </>
+              <div className="inline-flex items-center gap-1.5">
+                <button
+                  type="button"
+                  id={`btn-toggle-alarm-${task.id}`}
+                  onClick={() => onToggleAlarm(task.id)}
+                  disabled={task.completed}
+                  className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded transition-colors ${
+                    task.completed
+                      ? 'text-zinc-300 dark:text-zinc-600 cursor-not-allowed'
+                      : task.alarmEnabled
+                        ? 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30'
+                        : 'text-zinc-400 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                  }`}
+                  title={task.alarmEnabled ? 'Alarm enabled on deadline (Click to disable)' : 'Alarm disabled (Click to enable)'}
+                >
+                  {task.alarmEnabled ? (
+                    <>
+                      <Bell className="w-3 h-3 text-amber-500 fill-amber-500/20 animate-wiggle" />
+                      <span>Alarm on</span>
+                    </>
+                  ) : (
+                    <>
+                      <BellOff className="w-3 h-3" />
+                      <span>Alarm off</span>
+                    </>
+                  )}
+                </button>
+
+                {task.alarmEnabled && !task.completed && (
+                  <span 
+                    className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/50"
+                    title={`Tone: ${task.alarmTone || 'chime'}`}
+                  >
+                    <Music className="w-2.5 h-2.5" />
+                    <span>{task.alarmTone === 'custom' ? 'Custom Ringtone' : (task.alarmTone || 'chime')}</span>
+                  </span>
                 )}
-              </button>
+              </div>
             )}
 
             {/* Quick Snooze button if overdue or due now */}

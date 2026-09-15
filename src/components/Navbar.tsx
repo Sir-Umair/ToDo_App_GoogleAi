@@ -6,23 +6,30 @@ import {
   Volume2, 
   VolumeX, 
   BellRing,
-  Clock
+  Clock,
+  Music
 } from 'lucide-react';
 import { soundManager } from '../utils/audio';
+import { AlarmTone } from '../types';
 
 interface NavbarProps {
   isDark: boolean;
   onToggleTheme: () => void;
   activeAlarmsCount: number;
+  onOpenRingtoneManager: () => void;
+  customRingtonesCount: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   isDark,
   onToggleTheme,
-  activeAlarmsCount
+  activeAlarmsCount,
+  onOpenRingtoneManager,
+  customRingtonesCount
 }) => {
   const [isMuted, setIsMuted] = useState(soundManager.getIsMuted());
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [selectedPreviewTone, setSelectedPreviewTone] = useState<AlarmTone>('chime');
   const [isTestingAudio, setIsTestingAudio] = useState(false);
 
   useEffect(() => {
@@ -38,9 +45,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     setIsMuted(nextMute);
   };
 
-  const handleTestChime = () => {
+  const handleTestTone = (tone: AlarmTone) => {
     setIsTestingAudio(true);
-    soundManager.playChime();
+    soundManager.playTone(tone);
     setTimeout(() => setIsTestingAudio(false), 800);
   };
 
@@ -54,7 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
           <div>
             <h1 className="text-base font-bold text-zinc-900 dark:text-zinc-50 tracking-tight leading-none">
-              Task Priority & Alarm
+              Taskly
             </h1>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
               Focus on what matters most
@@ -88,20 +95,55 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           )}
 
-          {/* Test Sound Button */}
+          {/* Test Sound & Tone Audition */}
+          <div className="hidden md:flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900 p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs">
+            <select
+              id="select-preview-tone"
+              value={selectedPreviewTone}
+              onChange={(e) => {
+                const t = e.target.value as AlarmTone;
+                setSelectedPreviewTone(t);
+                handleTestTone(t);
+              }}
+              aria-label="Alarm Tone"
+              className="bg-transparent text-zinc-700 dark:text-zinc-300 font-medium text-xs focus:outline-none pr-1 pl-1 cursor-pointer"
+            >
+              <option value="chime">Classic Tone</option>
+              <option value="digital">Digital Beep</option>
+              <option value="radar">Radar Sonar</option>
+              <option value="gentle">Gentle Bell</option>
+            </select>
+            <button
+              id="btn-test-sound"
+              onClick={() => handleTestTone(selectedPreviewTone)}
+              type="button"
+              className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md transition-all ${
+                isTestingAudio 
+                  ? 'bg-indigo-600 text-white shadow-sm' 
+                  : 'bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 hover:bg-zinc-50 shadow-xs'
+              }`}
+              title="Test selected alarm tone"
+            >
+              <Volume2 className="w-3.5 h-3.5" />
+              <span>Test</span>
+            </button>
+          </div>
+
+          {/* Custom Ringtones Manager Button */}
           <button
-            id="btn-test-sound"
-            onClick={handleTestChime}
+            id="btn-open-ringtones"
             type="button"
-            className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all ${
-              isTestingAudio 
-                ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 scale-95' 
-                : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/80'
-            }`}
-            title="Preview alarm chime"
+            onClick={onOpenRingtoneManager}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            title="Upload and manage custom ringtones (iPhone, Android, PC/Mac)"
           >
-            <Volume2 className="w-3.5 h-3.5" />
-            <span>Test Sound</span>
+            <Music className="w-3.5 h-3.5 text-indigo-500" />
+            <span className="hidden sm:inline">Ringtones</span>
+            {customRingtonesCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold">
+                {customRingtonesCount}
+              </span>
+            )}
           </button>
 
           {/* Sound Mute Toggle */}

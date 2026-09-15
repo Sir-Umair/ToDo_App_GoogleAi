@@ -1,7 +1,8 @@
-import { Task } from '../types';
+import { Task, CustomRingtone } from '../types';
 
 const STORAGE_KEY = 'priority_todo_tasks_v1';
 const THEME_KEY = 'priority_todo_theme_v1';
+const RINGTONES_KEY = 'taskly_custom_ringtones_v1';
 
 export function getInitialTasks(): Task[] {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -9,7 +10,16 @@ export function getInitialTasks(): Task[] {
     try {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) {
-        return parsed;
+        // Enforce strict uniqueness by task ID so corrupted duplicate items in storage are cleaned up
+        const seenIds = new Set<string>();
+        const uniqueTasks: Task[] = [];
+        for (const item of parsed) {
+          if (item && item.id && !seenIds.has(item.id)) {
+            seenIds.add(item.id);
+            uniqueTasks.push(item);
+          }
+        }
+        return uniqueTasks;
       }
     } catch {
       // Fallback
@@ -88,7 +98,16 @@ export function getInitialTasks(): Task[] {
 
 export function saveTasks(tasks: Task[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    // Sanitize and deduplicate before persisting
+    const seen = new Set<string>();
+    const deduplicated: Task[] = [];
+    for (const t of tasks) {
+      if (t && t.id && !seen.has(t.id)) {
+        seen.add(t.id);
+        deduplicated.push(t);
+      }
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(deduplicated));
   } catch {
     // Storage quota or private browsing error
   }
@@ -107,5 +126,28 @@ export function saveTheme(isDark: boolean): void {
     localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
   } catch {
     // Ignore
+  }
+}
+
+export function getStoredRingtones(): CustomRingtone[] {
+  try {
+    const raw = localStorage.getItem(RINGTONES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Return empty list on parse error or private mode
+  }
+  return [];
+}
+
+export function saveStoredRingtones(ringtones: CustomRingtone[]): void {
+  try {
+    localStorage.setItem(RINGTONES_KEY, JSON.stringify(ringtones));
+  } catch {
+    // Storage quota warning
   }
 }

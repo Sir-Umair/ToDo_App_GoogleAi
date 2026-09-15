@@ -58,7 +58,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   const filteredTasks = useMemo(() => {
     const now = Date.now();
 
-    return tasks
+    const sortedList = tasks
       .filter((task) => {
         // Status filter
         if (statusFilter === 'active' && task.completed) return false;
@@ -122,6 +122,18 @@ export const TaskList: React.FC<TaskListProps> = ({
 
         return 0;
       });
+
+    // Enforce strict uniqueness by task ID so duplicate keys or duplicate cards are never rendered
+    const seen = new Set<string>();
+    const uniqueSorted: Task[] = [];
+    for (const t of sortedList) {
+      if (t && t.id && !seen.has(t.id)) {
+        seen.add(t.id);
+        uniqueSorted.push(t);
+      }
+    }
+
+    return uniqueSorted;
   }, [tasks, statusFilter, priorityFilter, categoryFilter, searchQuery, sortBy]);
 
   return (

@@ -5,8 +5,16 @@ import { TaskForm } from './components/TaskForm';
 import { TaskList } from './components/TaskList';
 import { AlarmModal } from './components/AlarmModal';
 import { EditTaskModal } from './components/EditTaskModal';
-import { Task, Priority, Category } from './types';
-import { getInitialTasks, saveTasks, getInitialTheme, saveTheme } from './utils/storage';
+import { RingtoneManagerModal } from './components/RingtoneManagerModal';
+import { Task, Priority, Category, AlarmTone, CustomRingtone } from './types';
+import { 
+  getInitialTasks, 
+  saveTasks, 
+  getInitialTheme, 
+  saveTheme,
+  getStoredRingtones,
+  saveStoredRingtones
+} from './utils/storage';
 import { soundManager } from './utils/audio';
 
 export default function App() {
@@ -14,6 +22,8 @@ export default function App() {
   const [isDark, setIsDark] = useState<boolean>(getInitialTheme);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [ringingTasks, setRingingTasks] = useState<Task[]>([]);
+  const [customRingtones, setCustomRingtones] = useState<CustomRingtone[]>(getStoredRingtones);
+  const [isRingtoneModalOpen, setIsRingtoneModalOpen] = useState(false);
 
   // Apply dark mode class to root HTML element
   useEffect(() => {
@@ -30,6 +40,19 @@ export default function App() {
     saveTasks(tasks);
   }, [tasks]);
 
+  // Persist custom ringtones on change
+  useEffect(() => {
+    saveStoredRingtones(customRingtones);
+  }, [customRingtones]);
+
+  const handleAddCustomRingtone = (ringtone: CustomRingtone) => {
+    setCustomRingtones(prev => [ringtone, ...prev]);
+  };
+
+  const handleDeleteCustomRingtone = (id: string) => {
+    setCustomRingtones(prev => prev.filter(r => r.id !== id));
+  };
+
   // Request browser notification permission once user interacts
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -44,6 +67,9 @@ export default function App() {
 
   // Alarm verification interval (checks every 3 seconds)
   useEffect(() => {
+    // Keep a persistent ref set of task IDs currently ringing or already notified
+    const activeRingingIds = new Set<string>();
+
     const checkDeadlines = () => {
       const now = Date.now();
       const newlyTriggered: Task[] = [];
@@ -55,12 +81,14 @@ export default function App() {
             !task.completed &&
             task.alarmEnabled &&
             task.deadline &&
-            !task.alarmTriggered
+            !task.alarmTriggered &&
+            !activeRingingIds.has(task.id)
           ) {
             const deadlineTime = new Date(task.deadline).getTime();
             if (!isNaN(deadlineTime) && deadlineTime <= now) {
               changed = true;
-              newlyTriggered.push(task);
+              activeRingingIds.add(task.id);
+              newlyTriggered.push({ ...task, alarmTriggered: true });
               return { ...task, alarmTriggered: true };
             }
           }
@@ -112,6 +140,8 @@ export default function App() {
     category: Category;
     deadline?: string;
     alarmEnabled: boolean;
+    alarmTone?: AlarmTone;
+    customRingtoneId?: string;
   }) => {
     const newTask: Task = {
       id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -121,6 +151,8 @@ export default function App() {
       category: newTaskData.category,
       deadline: newTaskData.deadline,
       alarmEnabled: newTaskData.alarmEnabled,
+      alarmTone: newTaskData.alarmTone || 'chime',
+      customRingtoneId: newTaskData.customRingtoneId,
       alarmTriggered: false,
       completed: false,
       createdAt: new Date().toISOString()
@@ -243,6 +275,8 @@ export default function App() {
         isDark={isDark}
         onToggleTheme={toggleTheme}
         activeAlarmsCount={activeAlarmsCount}
+        onOpenRingtoneManager={() => setIsRingtoneModalOpen(true)}
+        customRingtonesCount={customRingtones.length}
       />
 
       {/* Main Content Area */}
@@ -252,7 +286,11 @@ export default function App() {
         <ProgressTracker tasks={tasks} />
 
         {/* Task Creation Form */}
-        <TaskForm onAddTask={handleAddTask} />
+        <TaskForm 
+          onAddTask={handleAddTask}
+          customRingtones={customRingtones}
+          onOpenRingtoneManager={() => setIsRingtoneModalOpen(true)}
+        />
 
         {/* Task List with Filters, Search, Sorting, and Transitions */}
         <TaskList
@@ -269,6 +307,7 @@ export default function App() {
       {/* Persistent Alarm Ringing Modal */}
       <AlarmModal
         ringingTasks={ringingTasks}
+        customRingtones={customRingtones}
         onDismiss={handleDismissAlarm}
         onDismissAll={handleDismissAllAlarms}
         onMarkComplete={handleAlarmMarkComplete}
@@ -281,12 +320,23 @@ export default function App() {
         isOpen={Boolean(editingTask)}
         onClose={() => setEditingTask(null)}
         onSave={handleSaveEdit}
+        customRingtones={customRingtones}
+        onOpenRingtoneManager={() => setIsRingtoneModalOpen(true)}
+      />
+
+      {/* Custom Ringtone Manager Modal (Android & System files) */}
+      <RingtoneManagerModal
+        isOpen={isRingtoneModalOpen}
+        onClose={() => setIsRingtoneModalOpen(false)}
+        customRingtones={customRingtones}
+        onAddRingtone={handleAddCustomRingtone}
+        onDeleteRingtone={handleDeleteCustomRingtone}
       />
 
       {/* Footer */}
       <footer className="py-6 border-t border-zinc-200 dark:border-zinc-800 text-center text-xs text-zinc-400 dark:text-zinc-500">
         <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>Priority Task & Deadline Alarm</span>
+          <span>Taskly</span>
           <span>Audio synthesizer alarms active • Auto-persisted locally</span>
         </div>
       </footer>

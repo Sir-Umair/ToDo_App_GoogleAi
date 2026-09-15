@@ -8,11 +8,12 @@ import {
   Volume2, 
   AlertTriangle 
 } from 'lucide-react';
-import { Task } from '../types';
+import { Task, CustomRingtone } from '../types';
 import { soundManager } from '../utils/audio';
 
 interface AlarmModalProps {
   ringingTasks: Task[];
+  customRingtones?: CustomRingtone[];
   onDismiss: (id: string) => void;
   onDismissAll: () => void;
   onMarkComplete: (id: string) => void;
@@ -21,15 +22,39 @@ interface AlarmModalProps {
 
 export const AlarmModal: React.FC<AlarmModalProps> = ({
   ringingTasks,
+  customRingtones = [],
   onDismiss,
   onDismissAll,
   onMarkComplete,
   onSnooze
 }) => {
+  // Deduplicate ringing tasks strictly by ID so no task ever appears twice in the modal
+  const uniqueRingingTasks = React.useMemo(() => {
+    const seen = new Set<string>();
+    const unique: Task[] = [];
+    for (const t of ringingTasks) {
+      if (t && t.id && !seen.has(t.id)) {
+        seen.add(t.id);
+        unique.push(t);
+      }
+    }
+    return unique;
+  }, [ringingTasks]);
+
   // Trigger audio loop whenever ringingTasks has items
   useEffect(() => {
-    if (ringingTasks.length > 0) {
-      soundManager.startAlarm();
+    if (uniqueRingingTasks.length > 0) {
+      // Use tone of first ringing task if configured
+      const firstTask = uniqueRingingTasks[0];
+      const activeTone = firstTask?.alarmTone || 'chime';
+
+      let customUrl: string | undefined;
+      if (activeTone === 'custom' && firstTask.customRingtoneId) {
+        const found = customRingtones.find(r => r.id === firstTask.customRingtoneId);
+        customUrl = found?.dataUrl || customRingtones[0]?.dataUrl;
+      }
+
+      soundManager.startAlarm(activeTone, customUrl);
     } else {
       soundManager.stopAlarm();
     }
@@ -37,9 +62,9 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
     return () => {
       soundManager.stopAlarm();
     };
-  }, [ringingTasks.length]);
+  }, [uniqueRingingTasks.length, uniqueRingingTasks, customRingtones]);
 
-  if (ringingTasks.length === 0) return null;
+  if (uniqueRingingTasks.length === 0) return null;
 
   return (
     <AnimatePresence>
@@ -69,9 +94,9 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
                   Deadline Alarm Ringing
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {ringingTasks.length === 1 
+                  {uniqueRingingTasks.length === 1 
                     ? 'A scheduled deadline has arrived!' 
-                    : `${ringingTasks.length} deadlines need immediate attention!`}
+                    : `${uniqueRingingTasks.length} deadlines need immediate attention!`}
                 </p>
               </div>
             </div>
@@ -88,7 +113,7 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
 
           {/* Ringing Items */}
           <div className="my-4 max-h-72 overflow-y-auto space-y-3 pr-1">
-            {ringingTasks.map((task) => (
+            {uniqueRingingTasks.map((task) => (
               <div
                 key={task.id}
                 id={`alarm-ringing-card-${task.id}`}
